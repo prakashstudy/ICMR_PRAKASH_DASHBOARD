@@ -1711,7 +1711,7 @@ app.layout = html.Div([
             # Row 1: Logo & Title
             html.Div([
                 html.Div([
-                    html.Img(src="/main_logo.svg", className="logo-img main-logo"),
+                    html.Img(src="/assets/main_logo.svg", className="logo-img main-logo"),
                 ], className="logo-container main-logo-container"),
                 
                 html.Div([
@@ -1732,8 +1732,8 @@ app.layout = html.Div([
             ], id="theme-toggle", className="theme-toggle-btn", style={"marginRight": "15px"}),
             
             html.Div([
-                html.Img(src="/images.png", className="logo-img partner-logo images-logo"),
-                html.Img(src="/government-of-karnataka.jpg", className="logo-img partner-logo gok-logo"),
+                html.Img(src="/assets/images.png", className="logo-img partner-logo images-logo"),
+                html.Img(src="/assets/government-of-karnataka.jpg", className="logo-img partner-logo gok-logo"),
                 html.Img(src="/assets/khpt-logo.png", className="logo-img partner-logo khpt-logo"),
             ], className="partner-logo-group last-partner"),
         ], style={"display": "flex", "alignItems": "center"})
@@ -1747,11 +1747,11 @@ app.layout = html.Div([
             html.Span("AMB 2.0 T³", className="glowing-badge", style={"fontSize": "0.6rem", "padding": "1px 6px", "marginTop": "2px"})
         ], className="mobile-brand-group"),
         html.Div([
-            html.Img(src="/main_logo.svg", className="mobile-logo main-mobile-logo"),
-            html.Img(src="/images.png", className="mobile-logo partner-mobile-logo"),
-            html.Img(src="/government-of-karnataka.jpg", className="mobile-logo gok-mobile-logo"),
+            html.Img(src="/assets/main_logo.svg", className="mobile-logo main-mobile-logo"),
+            html.Img(src="/assets/images.png", className="mobile-logo partner-mobile-logo"),
+            html.Img(src="/assets/government-of-karnataka.jpg", className="mobile-logo gok-mobile-logo"),
             html.Img(src="/assets/khpt-logo.png", className="mobile-logo khpt-mobile-logo"),
-        ], className="mobile-logo-group")
+        ], className="mobile-logo-container")
     ], className="mobile-nav"),
 
     # Page Content Container
