@@ -1,4 +1,4 @@
-﻿WHO_BMI_LMS = {
+WHO_BMI_LMS = {
     'boys': {
         0: {'L': -0.3053, 'M': 13.4069, 'S': 0.0956},
         1: {'L': 0.2708, 'M': 14.9441, 'S': 0.09027},
@@ -24,7 +24,7 @@
         21: {'L': -0.6014, 'M': 15.9039, 'S': 0.07818},
         22: {'L': -0.6174, 'M': 15.8412, 'S': 0.07802},
         23: {'L': -0.6328, 'M': 15.7852, 'S': 0.07786},
-        24: {'L': -0.6187, 'M': 16.0189, 'S': 0.07785},
+        24: {'L': -0.6187, 'M': 16.0189, 'S': 0.0800},
         25: {'L': -0.584, 'M': 15.98, 'S': 0.07792},
         26: {'L': -0.5497, 'M': 15.9414, 'S': 0.078},
         27: {'L': -0.5166, 'M': 15.9036, 'S': 0.07808},
@@ -564,9 +564,9 @@ def classify_who_z_score(z_score, age_in_months):
         elif z_score > 1:
             return "Risk of Overweight"
         elif z_score < -3:
-            return "Severely Wasted"
+            return "Severe Underweight"
         elif z_score < -2:
-            return "Wasted"
+            return "Underweight"
         else:
             return "Normal"
     else: # 5-19 Years
@@ -575,8 +575,8 @@ def classify_who_z_score(z_score, age_in_months):
         elif z_score > 1:
             return "Overweight"
         elif z_score < -3:
-            return "Severe Thinness"
+            return "Severe Underweight"
         elif z_score < -2:
-            return "Thinness"
+            return "Underweight"
         else:
             return "Normal"
