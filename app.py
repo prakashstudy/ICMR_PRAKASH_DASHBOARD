@@ -9,6 +9,7 @@ import re
 import urllib.parse
 from datetime import datetime
 import threading
+import hashlib
 
 
 
@@ -37,6 +38,37 @@ BLOCK_CODE_MAP = {
 anemia_list = ["normal", "mild", "moderate", "severe"]
 
 # =========================
+# PII ANONYMIZATION (DPDP)
+# =========================
+PII_SALT = "DASHBOARD_2025_SECURE"
+
+def salt_hash_pii(val, prefix=""):
+    """Creates a non-reversible hash for PII data."""
+    if val is None or pd.isna(val) or str(val).strip() == "":
+        return ""
+    clean_val = str(val).strip().lower()
+    hash_obj = hashlib.sha256((clean_val + PII_SALT).encode())
+    return f"{prefix}{hash_obj.hexdigest()[:8].upper()}"
+
+def mask_pii_readable(val):
+    """Masks string to show first and last letter (e.g. Ashwin -> A****n)"""
+    if val is None or pd.isna(val) or str(val).strip() == "":
+        return ""
+    s = str(val).strip()
+    if len(s) <= 2:
+        return s
+    return f"{s[0]}{'*' * 4}{s[-1]}"
+
+def mask_contact(val):
+    """Masks phone numbers to protect identity (e.g. 91XXXXX12)"""
+    if val is None or pd.isna(val) or str(val).strip() == "":
+        return ""
+    s = str(val).strip()
+    if len(s) >= 4:
+        return f"{s[:2]}{'X' * (len(s)-4)}{s[-2:]}"
+    return "****"
+
+# =========================
 # DASH INIT
 # =========================
 app = dash.Dash(__name__, 
@@ -52,7 +84,7 @@ server = app.server
 
 @server.route('/<filename>')
 def serve_assets(filename):
-    if filename in ['images.png', 'main_logo.svg', 'government-of-karnataka.webp']:
+    if filename in ['images.png', 'main_logo.svg', 'government-of-karnataka.jpg']:
         root_dir = os.path.dirname(os.path.abspath(__file__))
         return flask.send_from_directory(root_dir, filename)
     return flask.abort(404)
@@ -443,13 +475,43 @@ def load_data():
 
         df.columns = df.columns.str.strip()
         
+        # --- Auto-generate Sl.No (Replace Excel's Sl.No) ---
+        df = df.reset_index(drop=True)
+        df["Sl.No"] = df.index + 1
+        
+        # --- PII ANONYMIZATION (DPDP Act Compliance) ---
+        if not df.empty:
+            # Preserve real contact for background logic (WhatsApp) but hide it from the table
+            if "Aasha_Contact" in df.columns:
+                df["_real_contact"] = df["Aasha_Contact"].astype(str)
+                df["Aasha_Contact"] = df["Aasha_Contact"].apply(mask_contact)
+            
+            # Mask sensitive names
+            if "Name" in df.columns:
+                df["Name"] = df["Name"].apply(mask_pii_readable)
+            if "Household Name" in df.columns:
+                df["Household Name"] = df["Household Name"].apply(mask_pii_readable)
+            if "Email" in df.columns:
+                df["Email"] = df["Email"].apply(mask_pii_readable)
+            
+            # Mask Staff Names (Traceable format)
+            if "Asha_Worker" in df.columns:
+                df["Asha_Worker"] = df["Asha_Worker"].apply(mask_pii_readable)
+            if "field_investigator" in df.columns:
+                df["field_investigator"] = df["field_investigator"].apply(mask_pii_readable)
+            if "data_operator" in df.columns:
+                df["data_operator"] = df["data_operator"].apply(mask_pii_readable)
+            if "Collected By" in df.columns:
+                df["Collected By"] = df["Collected By"].apply(mask_pii_readable)
+        # -----------------------------------------------
+
         required_cols = [
             "Sl.No", "ID", "enrollment_date", "BlockCode", "Area Code", "PSU Name",
             "Name", "Household Name", "Gender", "Benificiery", "Trimester", "DOB", "Age",
             "sample_status", "Sample Collected Date", "Collected By",
             "HGB", "anemia_category", "field_investigator", "data_operator",
             "Asha_Worker", "Aasha_Contact", "Diet 1", "Diet 2", "benficiery qn",
-            "Length", "Height", "Weight", "Email", "Status"
+            "Length", "Height", "Weight", "Email", "Status", "_real_contact"
         ]
         df = df[[c for c in required_cols if c in df.columns]]
 
@@ -1304,8 +1366,9 @@ def get_treat_layout():
             # Shared placeholders for Dashboard components (Exclude what Treat page HAS)
             *get_shared_placeholders([
                 "block-code-dropdown", "location-dropdown", "benificiery-dropdown", "anemia-dropdown", "btn-clear",
-                "urgent-alerts-list", "total", "severe-count", "moderate-count", "mild-count", "avg-hgb", "map", "theme-toggle-mobile",
-                "severe-table", "moderate-table", "mild-table", "table", "weekly-summary-container"
+                "urgent-alerts-list", "total", "severe-count", "moderate-count", "mild-count", "avg-hgb", "map", 
+                "severe-table", "moderate-table", "mild-table", "table", "weekly-summary-container",
+                "theme-toggle-mobile"
             ])
         ], id="main-content", className="main-content")
 
@@ -1314,15 +1377,15 @@ def get_track_layout():
         # Main Content Centered
         html.Div([
             html.Div([
-                html.H1("Track Page", style={"fontWeight": "800", "fontSize": "2.5rem", "marginBottom": "15px"}),
+                html.H1("Track Page", style={"fontWeight": "800", "fontSize": "2.5rem", "marginBottom": "15px", "color": "var(--text-main)"}),
                 html.P("Real-time Tracking & Longitudinal Analysis", 
                        style={"fontSize": "1.1rem", "color": "var(--text-muted)", "marginBottom": "30px"}),
                 
                 html.Div([
                     html.I(className="fas fa-tools", style={"fontSize": "3rem", "color": "var(--primary-color)", "marginBottom": "20px"}),
-                    html.H5("Feature Under Development", style={"fontWeight": "700"}),
+                    html.H5("Feature Under Development", style={"fontWeight": "700", "color": "var(--text-main)"}),
                     html.P("We are working hard to bring you longitudinal tracking and advanced predictive analytics for anemia management.", 
-                           className="text-muted", style={"maxWidth": "400px", "margin": "0 auto 30px auto"}),
+                           style={"maxWidth": "400px", "margin": "0 auto 30px auto", "color": "var(--text-muted)"}),
                     
                     dbc.Button([html.I(className="fas fa-arrow-left me-2"), "Back to Dashboard"], 
                                href="/", color="primary", className="px-4 shadow-sm", 
@@ -1344,7 +1407,7 @@ def get_footer():
         html.Div([
             html.P([
                 "Copyright © 2026 ICMR CAR MEDTECH LAB, St John's Research Institute, Bangalore"
-            ], style={"textAlign": "center", "color": "#f43f5e", "opacity": "0.9", "fontWeight": "bold", "marginTop": "20px", "fontSize": "1rem"})
+            ], style={"textAlign": "center", "color": "var(--primary-color)", "opacity": "0.9", "fontWeight": "600", "marginTop": "20px", "fontSize": "0.9rem"})
         ], className="footer-content")
     ], className="dashboard-footer")
 
@@ -1375,7 +1438,6 @@ def get_shared_placeholders(exclude_list):
         "block-prevalence-bar": dcc.Graph(id="block-prevalence-bar", style={"display": "none"}),
         "hgb-stats-bar": dcc.Graph(id="hgb-stats-bar", style={"display": "none"}),
         "bmi-bar": dcc.Graph(id="bmi-bar", style={"display": "none"}),
-        "theme-toggle-mobile": html.Div(id="theme-toggle-mobile", style={"display": "none"}),
         "table": dash_table.DataTable(id="table", style_header={"display": "none"}, style_cell={"display": "none"}),
         "block-code-dropdown": dcc.Dropdown(id="block-code-dropdown", style={"display": "none"}),
         "location-dropdown": dcc.Dropdown(id="location-dropdown", style={"display": "none"}),
@@ -1389,7 +1451,8 @@ def get_shared_placeholders(exclude_list):
         "weekly-summary-container": html.Div(id="weekly-summary-container", style={"display": "none"}),
         "btn-clear": dbc.Button(id="btn-clear", style={"display": "none"}),
         "btn-excel": dbc.Button(id="btn-excel", style={"display": "none"}),
-        "btn-csv": dbc.Button(id="btn-csv", style={"display": "none"})
+        "btn-csv": dbc.Button(id="btn-csv", style={"display": "none"}),
+        "theme-toggle-mobile": html.Div(id="theme-toggle-mobile", style={"display": "none"})
     }
     
     return [v for k, v in all_outputs.items() if k not in exclude_list]
@@ -1616,9 +1679,9 @@ def get_dashboard_layout():
             # Shared placeholders for Treat Page components (Exclude what Dashboard page HAS)
             *get_shared_placeholders([
                 "block-code-dropdown", "location-dropdown", "benificiery-dropdown", "anemia-dropdown", "btn-clear", "btn-excel", "btn-csv",
-                "theme-toggle-mobile", "total", "prevalence-val", "normal-count", "mild-count", "moderate-count", 
                 "severe-count", "avg-hgb", "diet-count", "map", "benificiery-bar", "anemia-pie", 
-                "anemia-village-bar", "block-anemia-bar", "block-prevalence-bar", "hgb-stats-bar", "bmi-bar", "table"
+                "anemia-village-bar", "block-anemia-bar", "block-prevalence-bar", "hgb-stats-bar", "bmi-bar", "table",
+                "theme-toggle-mobile", "prevalence-val", "normal-count", "mild-count", "moderate-count", "total"
             ])
         ], id="main-content", className="main-content")
     ])
@@ -1670,11 +1733,9 @@ app.layout = html.Div([
             
             html.Div([
                 html.Img(src="/images.png", className="logo-img partner-logo images-logo"),
-            ], className="logo-container partner-logo-container"),
-            
-            html.Div([
-                html.Img(src="/government-of-karnataka.webp", className="logo-img partner-logo gok-logo"),
-            ], className="logo-container partner-logo-container last-partner"),
+                html.Img(src="/government-of-karnataka.jpg", className="logo-img partner-logo gok-logo"),
+                html.Img(src="/assets/khpt-logo.png", className="logo-img partner-logo khpt-logo"),
+            ], className="partner-logo-group last-partner"),
         ], style={"display": "flex", "alignItems": "center"})
     ], className="top-bar"),
 
@@ -1682,13 +1743,14 @@ app.layout = html.Div([
     html.Div([
         dbc.Button(html.I(className="fas fa-bars"), id="btn-toggle", className="toggle-button"),
         html.Div([
-            html.Span("PRAKASH", style={"fontWeight": "800", "fontSize": "1.1rem", "marginRight": "5px", "color": "var(--text-main)"}),
-            html.Span("AMB 2.0 T³", className="glowing-badge", style={"fontSize": "0.65rem", "padding": "1px 6px"})
-        ], style={"display": "flex", "alignItems": "center", "marginLeft": "10px", "flex": "1"}),
+            html.Span("PRAKASH", style={"fontWeight": "800", "fontSize": "1.1rem", "color": "var(--text-main)", "lineHeight": "1"}),
+            html.Span("AMB 2.0 T³", className="glowing-badge", style={"fontSize": "0.6rem", "padding": "1px 6px", "marginTop": "2px"})
+        ], className="mobile-brand-group"),
         html.Div([
             html.Img(src="/main_logo.svg", className="mobile-logo main-mobile-logo"),
             html.Img(src="/images.png", className="mobile-logo partner-mobile-logo"),
-            html.Img(src="/government-of-karnataka.webp", className="mobile-logo gok-mobile-logo")
+            html.Img(src="/government-of-karnataka.jpg", className="mobile-logo gok-mobile-logo"),
+            html.Img(src="/assets/khpt-logo.png", className="mobile-logo khpt-mobile-logo"),
         ], className="mobile-logo-group")
     ], className="mobile-nav"),
 
@@ -1850,7 +1912,6 @@ def internal_update_dashboard(stored_dict, block_code, location, benificiery, an
     anemia = [anemia] if isinstance(anemia, str) else (anemia or [])
     
     # TRACE LOGGING
-    print(f"DEBUG: Trigger: {triggered_id} | In Location: {location} | Map Click: {'Present' if map_click else 'None'}")
 
     # Handle Chart Interactions (Cross-Filtering)
     if triggered_id == "btn-clear":
@@ -1935,13 +1996,15 @@ def internal_update_dashboard(stored_dict, block_code, location, benificiery, an
 
     # Apply all final filters to the main df for stats/charts
     # Apply all final filters to the main df for stats/charts
-    # BUT for Total Enrollment, we stick to OLD CODE LOGIC (Ignore BlockCode)
+    # AND for Total Enrollment (Now respecting BlockCode as per user request)
     df_total = df_full.copy()
+    if block_code and "BlockCode" in df_total.columns: 
+        df_total = df_total[df_total["BlockCode"].isin(block_code)]
     if location: df_total = df_total[df_total["Location"].isin(location)]
     if benificiery: df_total = df_total[df_total["Benificiery"].isin(benificiery)]
     if anemia: df_total = df_total[df_total["anemia_category"].str.lower().isin([x.lower() for x in anemia])]
     
-    total = len(df_total) # Total ignores Block Code
+    total = len(df_total)
 
     # Main df DOES respect Block Code for all other charts
     df = df_full.copy()
@@ -1981,29 +2044,45 @@ def internal_update_dashboard(stored_dict, block_code, location, benificiery, an
     
     # Prevalence should be based on the FILTERED total (len(df)), not the District Total (total)
     filtered_total = len(df)
-    prevalence = round(((mild + moderate + severe) / filtered_total * 100), 1) if filtered_total > 0 else 0
+    anemic_count = mild + moderate + severe
+    prevalence = round((anemic_count / filtered_total * 100), 1) if filtered_total > 0 else 0
     prevalence_str = f"{prevalence}%" if filtered_total > 0 else "No Data"
 
-    # Balanced Percentage Logic for Anemia Categories (Ensure 100% sum)
-    def get_balanced_percentages(counts_dict, total_count):
-        if total_count == 0:
+    # Balanced Percentage Logic for Anemia Categories (Ensure 100.0% sum)
+    def get_balanced_percentages(counts_dict, total_count, target_sum=100.0):
+        if total_count == 0 or target_sum == 0:
             return {k: 0.0 for k in counts_dict}
         
-        # Initial 1-decimal rounding
+        # Initial rounding
         pcts = {k: round((v / total_count * 100), 1) for k, v in counts_dict.items()}
-        current_sum = sum(pcts.values())
+        current_sum = round(sum(pcts.values()), 1)
         
-        # Adjust if sum is not exactly 100.0 (due to rounding)
-        if current_sum != 100.0 and current_sum != 0:
-            diff = round(100.0 - current_sum, 1)
+        # Adjust if sum is not exactly target_sum (due to rounding)
+        if current_sum != round(target_sum, 1) and current_sum != 0:
+            diff = round(target_sum - current_sum, 1)
             # Adjust the category with the highest count to minimize visual impact
-            max_cat = max(counts_dict, key=counts_dict.get)
+            max_cat = max(counts_dict, key=lambda k: (counts_dict[k], k))
             pcts[max_cat] = round(pcts[max_cat] + diff, 1)
             
         return pcts
 
-    anemia_counts_map = {"normal": normal, "mild": mild, "moderate": moderate, "severe": severe}
-    balanced_pcts = get_balanced_percentages(anemia_counts_map, filtered_total)
+    # --- Prevalence-First Strategy ---
+    # 1. Normal is strictly the remainder of 100.0 - Prevalence
+    normal_pct = 100.0 - prevalence if filtered_total > 0 else 0
+    
+    # 2. Sub-categories (Mild, Moderate, Severe) must sum exactly to Prevalence
+    anemic_counts_map = {"mild": mild, "moderate": moderate, "severe": severe}
+    # We pass total_count=filtered_total so the initial pct calculation is correct, 
+    # but the adjustment target is 'prevalence'
+    balanced_anemic_pcts = get_balanced_percentages(anemic_counts_map, filtered_total, target_sum=prevalence)
+    
+    # Store all in one map for the KPI display function
+    balanced_pcts = {
+        "normal": normal_pct,
+        "mild": balanced_anemic_pcts["mild"],
+        "moderate": balanced_anemic_pcts["moderate"],
+        "severe": balanced_anemic_pcts["severe"]
+    }
 
     def kpi_text(count, pct, t_count):
         if t_count == 0: return "No Data"
@@ -2022,8 +2101,8 @@ def internal_update_dashboard(stored_dict, block_code, location, benificiery, an
         "Name", "Household Name", "Gender", "Benificiery", "Trimester", "DOB", "Age",
         "Length", "Height", "Weight", "BMI", "bmi_category",
         "sample_status", "Sample Collected Date", "Collected By",
-        "HGB", "anemia_category", "Asha_Worker", "Aasha_Contact", "whatsapp", 
-        "field_investigator", "Diet 1", "Diet 2", "data_operator", "Status"
+        "HGB", "anemia_category", "Asha_Worker", "whatsapp", 
+        "field_investigator", "Diet 1", "Diet 2", "data_operator"
     ]
     available_cols = [c for c in table_order if c in df.columns or c == "whatsapp"]
     df_table = df.copy()
@@ -2048,7 +2127,8 @@ def internal_update_dashboard(stored_dict, block_code, location, benificiery, an
     # Generate WhatsApp Links for all derived tables
     def generate_wa_link(row):
         asha_name = row.get("Asha_Worker")
-        contact = str(row.get("Aasha_Contact", ""))
+        # Use unmasked contact for WhatsApp link if available, otherwise fallback
+        contact = str(row.get("_real_contact", row.get("Aasha_Contact", "")))
         cat = str(row.get("anemia_category", "")).lower()
         
         if cat in ["mild", "moderate", "severe"] and contact != "" and contact != "nan" and asha_name in asha_summaries:
@@ -2061,15 +2141,46 @@ def internal_update_dashboard(stored_dict, block_code, location, benificiery, an
     # Apply to main dataframe so all tables benefit
     df["whatsapp"] = df.apply(generate_wa_link, axis=1)
     df_table = df.copy()
+    
+    # ---------------------------------------------------------
+    # DPDP COMPLIANCE: MASK PII FOR DISPLAY (Main Table)
+    # ---------------------------------------------------------
+    def mask_pii_display(val, is_phone=False):
+        if pd.isna(val) or val == "":
+            return val
+        val = str(val)
+        if is_phone:
+            if len(val) > 4:
+                return "*" * (len(val) - 4) + val[-4:]
+            return val
+        else:
+            if len(val) > 1:
+                return val[0] + "*" * (len(val) - 1)
+            return "*"
+
+    if "Aasha_Contact" in df_table.columns:
+        df_table["Aasha_Contact"] = df_table["Aasha_Contact"].apply(lambda x: mask_pii_display(x, is_phone=True))
+        
+    if "Name" in df_table.columns:
+         df_table["Name"] = df_table["Name"].apply(lambda x: mask_pii_display(x))
+         
+    if "Household Name" in df_table.columns:
+         df_table["Household Name"] = df_table["Household Name"].apply(lambda x: mask_pii_display(x))
+    # ---------------------------------------------------------
+
     # df_table = df_table[available_cols].copy() # Moved down
-    date_cols_to_format = ["enrollment_date", "Sample Collected Date"]
+    date_cols_to_format = ["enrollment_date", "Sample Collected Date", "DOB"]
     for col in date_cols_to_format:
         if col in df_table.columns:
-            df_table[col] = pd.to_datetime(df_table[col], errors='coerce').dt.strftime('%d/%m/%Y').fillna("")
+            df_table[col] = pd.to_datetime(df_table[col], errors='coerce').dt.strftime('%d-%m-%Y').fillna("")
 
     for col in df_table.columns:
         if df_table[col].dtype == 'object':
             df_table[col] = df_table[col].astype(str).str.title()
+
+    # Ensure sequential Sl.No for current main table view
+    df_table = df_table.reset_index(drop=True)
+    df_table["Sl.No"] = df_table.index + 1
 
     # Removed is_full_update check to ensure dashboard always reflects current filter state
 
@@ -2108,7 +2219,7 @@ def internal_update_dashboard(stored_dict, block_code, location, benificiery, an
         b_str = "<br>".join([f"• {b}: {c}" for b, c in buckets.items()])
         
         # Build the full hover text
-        hover_label = f"<span style='font-size:14px; color:#1e293b'><b>{b_code}: {b_group}</b></span><br>"
+        hover_label = f"<span style='font-size:14px; color:{t['hover_text']}'><b>{b_code}: {b_group}</b></span><br>"
         age_hover_data.append(hover_label + f"Total: <b>{len(sub)}</b><br><br><b>Age Breakdown:</b><br>" + b_str)
 
     # Beneficiary Distribution (Vertical Bar with Codes)
@@ -2125,6 +2236,7 @@ def internal_update_dashboard(stored_dict, block_code, location, benificiery, an
     ))
     benif_bar.update_layout(
         template=t["plotly"],
+        hoverlabel=dict(bgcolor=t["hover_bg"], font_size=13, font_family="var(--font-family)", font_color=t["hover_text"], bordercolor="rgba(99, 102, 241, 0.2)"),
         margin=dict(t=40, b=110, l=40, r=20),
         xaxis=dict(
             title=dict(text="Beneficiary Code", standoff=0), 
@@ -2283,7 +2395,7 @@ def internal_update_dashboard(stored_dict, block_code, location, benificiery, an
             x=1.0, y=1.08,
             text=f"<span style='color:#10b981'><b>--</b></span> Dataset Average: <b>{group_avg:.2f}</b>",
             showarrow=False,
-            font=dict(size=12, family="-apple-system, BlinkMacSystemFont, sans-serif", color="#475569"),
+            font=dict(size=12, family="-apple-system, BlinkMacSystemFont, sans-serif", color=t["text"]),
             xanchor="right", yanchor="bottom"
         )
 
@@ -2414,7 +2526,8 @@ def internal_update_dashboard(stored_dict, block_code, location, benificiery, an
     urgent_list = []
     for _, row in urgent_df.iterrows():
         # Generate WP link for sidebar [Grouped Version]
-        contact = str(row.get("Aasha_Contact", ""))
+        # Use unmasked contact for WhatsApp link if available
+        contact = str(row.get("_real_contact", row.get("Aasha_Contact", "")))
         asha_name = row.get("Asha_Worker")
         p_id = str(row.get("ID", "Missing"))
         
@@ -2473,7 +2586,6 @@ def internal_update_dashboard(stored_dict, block_code, location, benificiery, an
         {"name": "Hb Level", "id": "HGB"},
         {"name": "Classification", "id": "Benificiery"},
         {"name": "Asha Worker", "id": "Asha_Worker"},
-        {"name": "Status", "id": "notify_status"},
         {"name": "Reset", "id": "reset_btn", "presentation": "markdown"}
     ]
 
@@ -2486,6 +2598,15 @@ def internal_update_dashboard(stored_dict, block_code, location, benificiery, an
         df_severe = df[df["anemia_category"].str.lower() == "severe"].copy()
         df_moderate = df[df["anemia_category"].str.lower() == "moderate"].copy()
         df_mild = df[df["anemia_category"].str.lower() == "mild"].copy()
+
+        # DPDP COMPLIANCE: MASK PII
+        for d in [df_severe, df_moderate, df_mild]:
+            if "Aasha_Contact" in d.columns:
+                d["Aasha_Contact"] = d["Aasha_Contact"].apply(lambda x: mask_pii_display(x, is_phone=True))
+            if "Name" in d.columns:
+                 d["Name"] = d["Name"].apply(lambda x: mask_pii_display(x))
+            if "Household Name" in d.columns:
+                 d["Household Name"] = d["Household Name"].apply(lambda x: mask_pii_display(x))
 
         # Generate Status based on cache
         def get_notify_status(row):
@@ -2510,6 +2631,11 @@ def internal_update_dashboard(stored_dict, block_code, location, benificiery, an
         df_severe["reset_btn"] = df_severe.apply(get_reset_icon, axis=1)
         df_moderate["reset_btn"] = df_moderate.apply(get_reset_icon, axis=1)
         df_mild["reset_btn"] = df_mild.apply(get_reset_icon, axis=1)
+
+        # Ensure sequential Sl.No for Treat page tables 1, 2, 3...
+        for d in [df_severe, df_moderate, df_mild]:
+            if not d.empty:
+                d["Sl.No"] = range(1, len(d) + 1)
 
         severe_data = df_severe.to_dict("records")
         moderate_data = df_moderate.to_dict("records")
@@ -2932,11 +3058,47 @@ def export_data(n_excel, n_csv, stored_dict, block_code, location, benif, anemia
             anemia_lower = [str(x).lower() for x in anemia]
             df = df[df["anemia_category"].str.lower().isin(anemia_lower)]
 
-        # Format dates for export (DD/MM/YYYY)
-        date_cols = ["enrollment_date", "Sample Collected Date"]
+        # ---------------------------------------------------------
+        # DPDP COMPLIANCE: MASK PII BEFORE EXPORT
+        # ---------------------------------------------------------
+        def mask_pii(val, is_phone=False):
+            if pd.isna(val) or val == "":
+                return val
+            val = str(val)
+            if is_phone:
+                if len(val) > 4:
+                    return "*" * (len(val) - 4) + val[-4:]
+                return val
+            else:
+                if len(val) > 1:
+                    return val[0] + "*" * (len(val) - 1)
+                return "*"
+
+        if "Aasha_Contact" in df.columns:
+            df["Aasha_Contact"] = df["Aasha_Contact"].apply(lambda x: mask_pii(x, is_phone=True))
+            
+        if "Name" in df.columns:
+             df["Name"] = df["Name"].apply(lambda x: mask_pii(x))
+             
+        if "Household Name" in df.columns:
+             df["Household Name"] = df["Household Name"].apply(lambda x: mask_pii(x))
+             
+        # Remove internal/sensitive columns from export
+        # Note: Using case-insensitive check for robustness
+        cols_to_remove = ["_real_contact", "email", "status"]
+        # Find actual columns that match (ignoring case if needed, but for now exact or mapped)
+        # Actually, let's just drop them if they exist exactly, or check standard variants
+        actual_cols_to_drop = [c for c in df.columns if c in cols_to_remove or c.lower() in ["email", "status"]]
+        
+        if actual_cols_to_drop:
+            df = df.drop(columns=actual_cols_to_drop)
+        # ---------------------------------------------------------
+
+        # Format dates for export (DD-MM-YYYY)
+        date_cols = ["enrollment_date", "Sample Collected Date", "DOB"]
         for col in date_cols:
             if col in df.columns:
-                df[col] = pd.to_datetime(df[col], errors='coerce').dt.strftime('%d/%m/%Y').fillna("")
+                df[col] = pd.to_datetime(df[col], errors='coerce').dt.strftime('%d-%m-%Y').fillna("")
 
         print(f"DEBUG: Exporting {len(df)} records. Trigger: {trigger}")
 
