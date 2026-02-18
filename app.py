@@ -348,7 +348,7 @@ def sync_data_to_sheets(df):
         return
 
     sync_cols = [
-        "SL.NO", "ID", "enrollment_date", "Area COde", "PSU Name", 
+        "SL.NO", "ID", "enrollment_date", "Area Code", "PSU Name", 
         "Name", "Gender", "Benificiery", "HGB", "anemia_category",
         "Length", "Height", "Weight", "Age", "whatsapp",
         "Diet 1", "Diet 2", "field_investigator", "Asha_Worker", "data_operator",
@@ -444,7 +444,7 @@ def load_data():
         df.columns = df.columns.str.strip()
         
         required_cols = [
-            "Sl.No", "ID", "enrollment_date", "BlockCode", "Area COde", "PSU Name",
+            "Sl.No", "ID", "enrollment_date", "BlockCode", "Area Code", "PSU Name",
             "Name", "Household Name", "Gender", "Benificiery", "Trimester", "DOB", "Age",
             "sample_status", "Sample Collected Date", "Collected By",
             "HGB", "anemia_category", "field_investigator", "data_operator",
@@ -586,11 +586,11 @@ def load_data():
         # Now apply classification using the populated Age
         df["bmi_category"] = df.apply(classify_nutritional_status, axis=1)
         
-        if "Area COde" in df.columns:
-            df["Area COde"] = df["Area COde"].astype(str).str.zfill(3)
+        if "Area Code" in df.columns:
+            df["Area Code"] = df["Area Code"].astype(str).str.zfill(3)
 
-        if "PSU Name" in df.columns and "Area COde" in df.columns:
-            df["Location"] = df["PSU Name"].astype(str) + " (" + df["Area COde"].astype(str) + ")"
+        if "PSU Name" in df.columns and "Area Code" in df.columns:
+            df["Location"] = df["PSU Name"].astype(str) + " (" + df["Area Code"].astype(str) + ")"
         elif "PSU Name" in df.columns:
             df["Location"] = df["PSU Name"].astype(str)
         else:
@@ -2007,7 +2007,7 @@ def internal_update_dashboard(stored_dict, block_code, location, benificiery, an
     color_map = {"normal": "#10b981", "mild": "#f59e0b", "moderate": "#f97316", "severe": "#f43f5e", "incomplete": "#475569"}
 
     table_order = [
-        "Sl.No", "ID", "enrollment_date", "BlockCode", "Area COde", "PSU Name",
+        "Sl.No", "ID", "enrollment_date", "BlockCode", "Area Code", "PSU Name",
         "Name", "Household Name", "Gender", "Benificiery", "Trimester", "DOB", "Age",
         "Length", "Height", "Weight", "BMI", "bmi_category",
         "sample_status", "Sample Collected Date", "Collected By",
@@ -2157,8 +2157,8 @@ def internal_update_dashboard(stored_dict, block_code, location, benificiery, an
     # Give the pie more room
     anemia_pie.update_traces(domain=dict(y=[0.2, 1.0]))
 
-    # Village-wise Anemia Classification (Stacked Bar with Area COdes)
-    psu_to_code = df.set_index("PSU Name")["Area COde"].to_dict() if not df.empty else {}
+    # Village-wise Anemia Classification (Stacked Bar with Area Codes)
+    psu_to_code = df.set_index("PSU Name")["Area Code"].to_dict() if not df.empty else {}
     
     village_anemia = df.groupby(["PSU Name", "anemia_category"]).size().unstack(fill_value=0)
     village_area_codes = [str(psu_to_code.get(psu, psu)) for psu in village_anemia.index]
@@ -2197,7 +2197,7 @@ def internal_update_dashboard(stored_dict, block_code, location, benificiery, an
         hovermode="closest",
         margin=dict(t=30, b=80, l=40, r=20),
         xaxis=dict(
-            title=dict(text="Area COde", standoff=0), 
+            title=dict(text="Area Code", standoff=0), 
             tickvals=village_anemia.index, # Map Names to Ticks
             ticktext=village_area_codes, # Show Codes on Ticks
             automargin=True, 
@@ -2236,7 +2236,7 @@ def internal_update_dashboard(stored_dict, block_code, location, benificiery, an
         stats = pd.merge(stats, anemic_counts, on="PSU Name", how="left").fillna(0)
         stats = stats.sort_values("PSU Name")
         
-        # Bar Chart with Tooltip info (Area COdes for labels)
+        # Bar Chart with Tooltip info (Area Codes for labels)
         stats["area_code"] = stats["PSU Name"].map(psu_to_code).astype(str)
         
         hgb_stats_fig.add_trace(go.Bar(
@@ -2281,7 +2281,7 @@ def internal_update_dashboard(stored_dict, block_code, location, benificiery, an
         margin=dict(t=50, b=80, l=50, r=20),
         hovermode="closest",
         xaxis=dict(
-            title=dict(text="Area COde", standoff=0), 
+            title=dict(text="Area Code", standoff=0), 
             tickvals=stats["PSU Name"] if not hgb_data.empty else [],
             ticktext=stats["area_code"] if not hgb_data.empty else [],
             automargin=True, 
@@ -2313,21 +2313,18 @@ def internal_update_dashboard(stored_dict, block_code, location, benificiery, an
         bmi_ben_counts = pd.DataFrame()
 
     bmi_colors = {
-        "Severely Wasted": "#7f1d1d",
-        "Wasted": "#dc2626",
-        "Severe Thinness": "#991b1b",
-        "Thinness": "#f43f5e",
-        "Underweight": "#fb7185",
-        "Normal": "#10b981",
-        "Risk of Overweight": "#3b82f6",
-        "Overweight": "#f59e0b",
-        "Obese": "#450a0a",
+        "Severe Underweight": "#7f1d1d", # Darkest Red
+        "Underweight": "#ef4444",        # Standard Red
+        "Normal": "#10b981",             # Emerald
+        "Risk of Overweight": "#3b82f6", # Ocean Blue (for children)
+        "Overweight": "#f59e0b",         # Amber
+        "Obese": "#450a0a",              # Deep Blood Red
         "Pregnancy": "#8b5cf6",
         "Data Missing": "#94a3b8"
     }
     
-    # Simplified stacking order for cleaner report
-    stack_order = ["Severely Wasted", "Wasted", "Severe Thinness", "Thinness", "Underweight", "Normal", "Risk of Overweight", "Overweight", "Obese", "Pregnancy", "Data Missing"]
+    # Unified stacking order
+    stack_order = ["Severe Underweight", "Underweight", "Normal", "Risk of Overweight", "Overweight", "Obese", "Pregnancy", "Data Missing"]
             
     bmi_fig = go.Figure()
     
@@ -2377,7 +2374,7 @@ def internal_update_dashboard(stored_dict, block_code, location, benificiery, an
     bmi_fig.update_layout(
         template=t["plotly"],
         barmode="stack",
-        margin=dict(t=30, b=50, l=50, r=20),
+        margin=dict(t=60, b=50, l=50, r=20),
         xaxis=dict(title="Beneficiary Type", showgrid=False, tickfont=dict(color=t["tick"])),
         yaxis=dict(title="Count", showgrid=True, gridcolor=t["grid"], tickfont=dict(color=t["tick"])),
         plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
@@ -2385,7 +2382,18 @@ def internal_update_dashboard(stored_dict, block_code, location, benificiery, an
         height=450,
         bargap=0.3,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5, font=dict(size=10, color=t["tick"])),
-        uirevision=True # Preserve zoom/pan state
+        uirevision=True,
+        annotations=[
+            dict(
+                x=1.0, y=1.15,
+                xref="paper", yref="paper",
+                text="ⓘ",
+                showarrow=False,
+                font=dict(size=20, color=t["tick"]),
+                hovertext="Terminology: 'Underweight' corresponds to WHO 'Thinness/Wasted' categories. Pregnant Women are excluded from this chart.",
+                align="right"
+            )
+        ]
     )
     bmi_fig.update_xaxes(showline=True, linecolor=t["grid"])
     # ----------------------------------------------
