@@ -1008,8 +1008,228 @@ body:not(.light-theme) .dash-spreadsheet-container .dash-spreadsheet .dash-row:h
     box-shadow: none !important;
 }
 
+.theme-toggle-btn-mobile {
+    background: transparent;
+    border: none;
+    color: var(--primary-color);
+    /* Ensure visibility on white background */
+    padding: 8px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: var(--transition);
+    font-size: 1.2rem;
+    margin-left: 5px;
+    z-index: 1002;
+    pointer-events: auto;
+}
+
+.theme-toggle-btn-mobile:hover {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+/* Responsiveness Media Queries */
+@media (max-width: 992px) {
+    :root {
+        --sidebar-width: 0px;
+    }
+
+    .top-bar {
+        display: none !important;
+    }
+
+    .mobile-only-extras {
+        display: block !important;
+    }
+
+    .mobile-nav {
+        display: flex !important;
+    }
+
+    .sidebar {
+        left: -300px;
+        top: 70px;
+        bottom: 0;
+        width: 280px;
+        height: auto;
+        border-radius: 0 24px 24px 0;
+        box-shadow: 20px 0 50px rgba(0, 0, 0, 0.3);
+        visibility: hidden;
+        margin: 0;
+    }
+
+    .sidebar.show {
+        left: 0;
+        visibility: visible;
+    }
+
+    .main-content {
+        margin-left: 0 !important;
+        margin-top: 70px !important;
+        padding: 20px !important;
+    }
+
+    .sidebar-tile {
+        border-radius: 0;
+        border: none;
+        border-bottom: 1px solid var(--glass-border);
+    }
+}
+
+@media (max-width: 768px) {
+    .kpi-card {
+        padding: 12px;
+    }
+
+    .kpi-value {
+        font-size: 1.2rem;
+    }
+
+    .graph-card {
+        padding: 20px;
+        border-radius: 16px;
+    }
+
+    .nav-btn {
+        padding: 8px 15px;
+        font-size: 0.8rem;
+    }
+}
+
+/* Status Dot Pulse */
+.status-dot {
+    width: 10px;
+    height: 10px;
+    background: #10b981;
+    border-radius: 50%;
+    position: relative;
+}
+
+.status-dot::after {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: inherit;
+    border-radius: inherit;
+    animation: ripple 2s infinite;
+}
+
+@keyframes ripple {
+    0% {
+        transform: scale(1);
+        opacity: 0.8;
+    }
+
+    100% {
+        transform: scale(2.5);
+        opacity: 0;
+    }
+}
+
+/* Shimmer Loading Effect */
+.shimmer {
+    background: linear-gradient(90deg, #f0f0f0 25%, #f8f8f8 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+/* Premium DataTable Styling */
+.premium-table .dash-spreadsheet-container .dash-spreadsheet {
+    border: none !important;
+}
+
+.premium-table .dash-spreadsheet-container .dash-spreadsheet .dash-header {
+    border-bottom: 2px solid var(--primary-color) !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    font-size: 0.75rem !important;
+    font-family: var(--font-family) !important;
+}
+
+.premium-table .dash-spreadsheet-container .dash-spreadsheet .dash-cell {
+    border: 1px solid var(--border-color) !important;
+}
+
+/* Pagination Styling */
+.premium-table .previous-next-container {
+    padding: 10px 0 !important;
+}
+
+.premium-table .previous-next-container button {
+    background: var(--icon-bg) !important;
+    color: var(--text-main) !important;
+    border: 1px solid var(--glass-border) !important;
+    border-radius: 6px !important;
+    margin: 0 5px !important;
+    transition: var(--transition) !important;
+    padding: 4px 12px !important;
+    font-size: 0.8rem !important;
+}
+
+.premium-table .previous-next-container button:hover {
+    background: var(--primary-color) !important;
+    color: white !important;
+    border-color: var(--primary-color) !important;
+}
+
+/* MASSIVE HOVER SUPPRESSION - Ensures NO hover background change can possibly occur */
+body:not(.light-theme) .dash-spreadsheet-container .dash-spreadsheet .dash-row:hover,
+body:not(.light-theme) .dash-spreadsheet-container .dash-spreadsheet .dash-row.dash-row--hover,
+body:not(.light-theme) .dash-spreadsheet-container .dash-spreadsheet .dash-cell:hover,
+body:not(.light-theme) .dash-spreadsheet-container .dash-spreadsheet .dash-cell.dash-cell--hover,
+body:not(.light-theme) .dash-spreadsheet-container .dash-spreadsheet tr:hover,
+body:not(.light-theme) .dash-spreadsheet-container .dash-spreadsheet tr:hover td,
+body:not(.light-theme) .dash-spreadsheet-container .dash-spreadsheet .dash-row:hover .dash-cell,
+body:not(.light-theme) .dash-spreadsheet-container .dash-spreadsheet .dash-row:hover .dash-cell div,
+body:not(.light-theme) .dash-spreadsheet-container .dash-spreadsheet .dash-row:hover .dash-cell input {
+    background-color: transparent !important;
+    background: transparent !important;
+    color: inherit !important;
+    transition: none !important;
+    box-shadow: none !important;
+}
+
 /* Force cells to keep their own backgrounds even when row is hovered */
 body:not(.light-theme) .dash-spreadsheet-container .dash-spreadsheet .dash-row:hover .dash-cell,
 body:not(.light-theme) .dash-spreadsheet-container .dash-spreadsheet .dash-cell:hover {
     background-color: inherit !important;
+}
+
+/* Mobile Logo Container Styling (Added for Dark Mode Visibility) */
+.mobile-logo-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: white;
+    /* Default for Dark Mode */
+    padding: 4px 8px;
+    border-radius: 6px;
+    margin-left: auto;
+    /* Push to right */
+}
+
+.light-theme .mobile-logo-container {
+    background: transparent;
+    padding: 0;
+}
+
+.mobile-logo {
+    height: 24px;
+    /* Slightly smaller for mobile */
+    object-fit: contain;
 }
