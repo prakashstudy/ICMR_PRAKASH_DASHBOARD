@@ -1984,24 +1984,35 @@ def internal_update_dashboard(stored_dict, block_code, location, benificiery, an
     prevalence = round(((mild + moderate + severe) / filtered_total * 100), 1) if filtered_total > 0 else 0
     prevalence_str = f"{prevalence}%" if filtered_total > 0 else "No Data"
 
-    # Formatting KPIs with percentages (Percentage not bold)
-    def get_kpi_str(count, total_count):
-        pct = round((count / total_count * 100), 1) if total_count > 0 else 0
-        return [
-            str(count), 
-            html.Span(f" ({pct}%)", style={"fontWeight": "400", "fontSize": "0.85em", "color": "#94a3b8", "marginLeft": "2px"})
-        ]
+    # Balanced Percentage Logic for Anemia Categories (Ensure 100% sum)
+    def get_balanced_percentages(counts_dict, total_count):
+        if total_count == 0:
+            return {k: 0.0 for k in counts_dict}
+        
+        # Initial 1-decimal rounding
+        pcts = {k: round((v / total_count * 100), 1) for k, v in counts_dict.items()}
+        current_sum = sum(pcts.values())
+        
+        # Adjust if sum is not exactly 100.0 (due to rounding)
+        if current_sum != 100.0 and current_sum != 0:
+            diff = round(100.0 - current_sum, 1)
+            # Adjust the category with the highest count to minimize visual impact
+            max_cat = max(counts_dict, key=counts_dict.get)
+            pcts[max_cat] = round(pcts[max_cat] + diff, 1)
+            
+        return pcts
 
-    # Use filtered_total for Anemia Categories so percentages reflect the current view (Block specific)
-    def kpi_text(val, count, t_count):
+    anemia_counts_map = {"normal": normal, "mild": mild, "moderate": moderate, "severe": severe}
+    balanced_pcts = get_balanced_percentages(anemia_counts_map, filtered_total)
+
+    def kpi_text(count, pct, t_count):
         if t_count == 0: return "No Data"
-        pct = round((count / t_count * 100), 1)
         return f"{count} ({pct}%)"
 
-    normal_kpi = kpi_text("Normal", normal, filtered_total)
-    mild_kpi = kpi_text("Mild", mild, filtered_total)
-    moderate_kpi = kpi_text("Moderate", moderate, filtered_total)
-    severe_kpi = kpi_text("Severe", severe, filtered_total)
+    normal_kpi = kpi_text(normal, balanced_pcts["normal"], filtered_total)
+    mild_kpi = kpi_text(mild, balanced_pcts["mild"], filtered_total)
+    moderate_kpi = kpi_text(moderate, balanced_pcts["moderate"], filtered_total)
+    severe_kpi = kpi_text(severe, balanced_pcts["severe"], filtered_total)
 
 
     color_map = {"normal": "#10b981", "mild": "#f59e0b", "moderate": "#f97316", "severe": "#f43f5e", "incomplete": "#475569"}
